@@ -34,7 +34,7 @@ class block(nn.Module):
         self.conv1 = nn.Conv2d(
             in_channels, intermediate_channels, kernel_size=1, stride=1, padding=0, bias=False
         )
-        self.bn1 = nn.BatchNorm2d(intermediate_channels)
+        self.ln1 = LayerNorm(intermediate_channels)
         self.conv2 = nn.Conv2d(
             intermediate_channels,
             intermediate_channels,
@@ -43,7 +43,7 @@ class block(nn.Module):
             padding=3,
             bias=False
         )
-        self.bn2 = nn.BatchNorm2d(intermediate_channels)
+        self.ln2 = LayerNorm(intermediate_channels)
         self.conv3 = nn.Conv2d(
             intermediate_channels,
             intermediate_channels * self.expansion,
@@ -52,8 +52,8 @@ class block(nn.Module):
             padding=0,
             bias=False
         )
-        self.bn3 = nn.BatchNorm2d(intermediate_channels * self.expansion)
-        self.relu = nn.ReLU()
+        self.bn1 = nn.BatchNorm2d(intermediate_channels * self.expansion)
+        self.gelu = nn.GELU()
         self.identity_downsample = identity_downsample
         self.stride = stride
 
@@ -61,19 +61,19 @@ class block(nn.Module):
         identity = x.clone()
 
         x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
+        x = self.ln1(x)
+        x = self.gelu(x)
         x = self.conv2(x)
-        x = self.bn2(x)
-        x = self.relu(x)
+        x = self.ln2(x)
+        x = self.gelu(x)
         x = self.conv3(x)
-        x = self.bn3(x)
+        x = self.bn1(x)
 
         if self.identity_downsample is not None:
             identity = self.identity_downsample(identity)
 
         x += identity
-        x = self.relu(x)
+        x = self.gelu(x)
         return x
 
 
@@ -82,8 +82,8 @@ class ConVNeXT(nn.Module):
         super(ConVNeXT, self).__init__()
         self.in_channels = 96
         self.conv1 = nn.Conv2d(image_channels, 96, kernel_size=4, stride=4, padding=3, bias=False)
-        self.bn1 = nn.BatchNorm2d(96)
-        self.relu = nn.ReLU()
+        self.ln1 = LayerNorm(96)
+        self.gelu = nn.GELU()
 
         # Essentially the entire ResNet architecture are in these 4 lines below
         self.layer1 = self._make_layer(
@@ -104,8 +104,8 @@ class ConVNeXT(nn.Module):
 
     def forward(self, x):
         x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
+        x = self.ln1(x)
+        x = self.gelu(x)
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
